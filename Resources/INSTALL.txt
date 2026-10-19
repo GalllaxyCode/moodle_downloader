@@ -1,4 +1,4 @@
-Moodle Downloader v1.2.1 — установка
+Moodle Downloader v1.3.0 — установка
 
 1. Перетащите Moodle Downloader.app в папку Applications.
 2. Попробуйте открыть приложение.
@@ -13,7 +13,7 @@ Moodle Downloader v1.2.1 — установка
 нотарифицировано Apple, так как для этого необходим сертификат Developer ID.
 
 Исходный код:
-https://github.com/shashkudalovv/moodle_downloader
+https://github.com/GalllaxyCode/moodle_downloader
 
 Официальная инструкция Apple:
 https://support.apple.com/102445

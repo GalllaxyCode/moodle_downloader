@@ -21,7 +21,7 @@ actor FileDownloader {
         configuration.httpCookieStorage = HTTPCookieStorage.shared
         configuration.httpShouldSetCookies = true
         configuration.timeoutIntervalForRequest = 90
-        configuration.httpAdditionalHeaders = ["User-Agent": "MoodleDownloader/1.2.1 macOS"]
+        configuration.httpAdditionalHeaders = ["User-Agent": "MoodleDownloader/1.3.0 macOS"]
         cookies.forEach { HTTPCookieStorage.shared.setCookie($0) }
         session = URLSession(configuration: configuration)
     }

@@ -20,9 +20,22 @@ chmod +x scripts/build-app.sh
 open "dist/Moodle Downloader.app"
 ```
 
+Для сборки DMG с приложением, ссылкой на Applications и инструкцией установки:
+
+```bash
+./scripts/package-dmg.sh
+```
+
+Образ и файл SHA-256 сохраняются в `dist/`. Если Command Line Tools выбирает
+macOS 27 SDK без SwiftUIMacros, укажите установленный SDK macOS 26.5:
+
+```bash
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/package-dmg.sh
+```
+
 ## Установка готового релиза
 
-Скачайте DMG со страницы [Releases](https://github.com/shashkudalovv/moodle_downloader/releases),
+Скачайте DMG со страницы [Releases](https://github.com/GalllaxyCode/moodle_downloader/releases),
 откройте его и перетащите приложение в `Applications`. Текущая сборка локально
 подписана, но не нотарифицирована Apple. При первом запуске после предупреждения
 Gatekeeper откройте **Настройки системы → Конфиденциальность и безопасность** и
