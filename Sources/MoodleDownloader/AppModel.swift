@@ -15,6 +15,10 @@ final class AppModel: ObservableObject {
     @Published var createArchive = false
     @Published var statusMessage = "Подключаюсь к Innopolis Moodle…"
     @Published var destination: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+    @Published private var courseVisibility = CourseVisibility()
+
+    var visibleCourses: [MoodleCourse] { courseVisibility.visibleCourses(from: courses) }
+    var hiddenCourses: [MoodleCourse] { courses.filter { courseVisibility.isHidden($0) } }
 
     private var activeTask: Task<Void, Never>?
     private var loginTask: Task<Void, Never>?
@@ -130,12 +134,17 @@ final class AppModel: ObservableObject {
                 let found = try await MoodleScraper(session: webSession).loadCourses()
                 try Task.checkCancellation()
                 courses = found
-                if selectedCourse == nil || !found.contains(where: { $0.id == selectedCourse?.id }) {
-                    selectedCourse = found.first
+                if selectedCourse == nil || !visibleCourses.contains(where: { $0.id == selectedCourse?.id }) {
+                    selectedCourse = visibleCourses.first
                 }
                 statusMessage = "Найдено курсов: \(found.count)"
                 state = .idle
-                if let selectedCourse { loadSections(for: selectedCourse) }
+                if let selectedCourse {
+                    loadSections(for: selectedCourse)
+                } else {
+                    sections = []
+                    clearSectionSelection()
+                }
             } catch {
                 if error.localizedDescription.contains("AUTH") { needsLogin = true }
                 state = .failed(readable(error))
@@ -151,6 +160,18 @@ final class AppModel: ObservableObject {
         selectedActivityIDs = []
         guard let course else { return }
         loadSections(for: course)
+    }
+
+    func hideCourse(_ course: MoodleCourse) {
+        guard !state.isRunning else { return }
+        courseVisibility.hide(course)
+        if selectedCourse?.id == course.id { selectCourse(visibleCourses.first) }
+    }
+
+    func showCourse(_ course: MoodleCourse) {
+        guard !state.isRunning else { return }
+        courseVisibility.show(course)
+        if selectedCourse == nil { selectCourse(course) }
     }
 
     func loadSections(for course: MoodleCourse) {
@@ -283,7 +304,8 @@ final class AppModel: ObservableObject {
     }
 
     func startDownloadAll() {
-        guard !courses.isEmpty else { return }
+        let coursesToDownload = visibleCourses
+        guard !coursesToDownload.isEmpty, !state.isRunning else { return }
         activeTask?.cancel()
         state = .preparing("Готовлю полный архив Moodle…")
         activeTask = Task {
@@ -297,15 +319,15 @@ final class AppModel: ObservableObject {
                 let scraper = MoodleScraper(session: webSession)
                 var plans: [(course: MoodleCourse, candidates: [DownloadCandidate])] = []
                 var skipped = 0
-                for (offset, course) in courses.enumerated() {
+                for (offset, course) in coursesToDownload.enumerated() {
                     try Task.checkCancellation()
-                    state = .preparing("Читаю предмет \(offset + 1) из \(courses.count): \(course.name)")
+                    state = .preparing("Читаю предмет \(offset + 1) из \(coursesToDownload.count): \(course.name)")
                     do {
                         let courseSections = try await scraper.loadSections(course: course)
                         let candidates = try await discoverCandidates(
                             in: courseSections,
                             scraper: scraper,
-                            messagePrefix: "\(offset + 1)/\(courses.count)"
+                            messagePrefix: "\(offset + 1)/\(coursesToDownload.count)"
                         )
                         if !candidates.isEmpty { plans.append((course, candidates)) }
                     } catch is CancellationError {

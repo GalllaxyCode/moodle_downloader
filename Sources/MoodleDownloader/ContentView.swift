@@ -69,18 +69,55 @@ struct ContentView: View {
                     Button("Открыть вход") { model.showLoginScreen() }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if model.visibleCourses.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "eye.slash").font(.title).foregroundStyle(.secondary)
+                    Text("Все курсы скрыты").font(.headline)
+                    Text("Верните нужный предмет через меню «Скрытые курсы» ниже.")
+                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(model.courses, selection: Binding(
+                List(model.visibleCourses, selection: Binding(
                     get: { model.selectedCourse },
                     set: { model.selectCourse($0) }
                 )) { course in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(course.name).lineLimit(3)
-                        Text("ID \(course.id)").font(.caption2).foregroundStyle(.tertiary)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(course.name).lineLimit(3)
+                            Text("ID \(course.id)").font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        Button { model.hideCourse(course) } label: {
+                            Label("Скрыть курс", systemImage: "eye.slash").labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Скрыть курс")
+                        .disabled(model.state.isRunning)
                     }
                     .padding(.vertical, 3)
                     .tag(course)
+                    .contextMenu {
+                        Button { model.hideCourse(course) } label: {
+                            Label("Скрыть курс", systemImage: "eye.slash")
+                        }
+                        .disabled(model.state.isRunning)
+                    }
                 }
+            }
+
+            if !model.hiddenCourses.isEmpty {
+                Menu {
+                    ForEach(model.hiddenCourses) { course in
+                        Button { model.showCourse(course) } label: {
+                            Label(course.name, systemImage: "eye")
+                        }
+                    }
+                } label: {
+                    Label("Скрытые курсы (\(model.hiddenCourses.count))", systemImage: "eye.slash")
+                }
+                .help("Выберите курс, чтобы снова показать его в списке")
+                .disabled(model.state.isRunning)
             }
 
             Divider()
@@ -97,12 +134,12 @@ struct ContentView: View {
                 Toggle("Создать ZIP-архив", isOn: $model.createArchive)
 
                 Button { model.startDownloadAll() } label: {
-                    Label("Скачать весь Moodle одним ZIP", systemImage: "archivebox.fill")
+                    Label("Скачать видимые курсы одним ZIP", systemImage: "archivebox.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.indigo)
-                .disabled(model.courses.isEmpty || model.state.isRunning)
+                .disabled(model.visibleCourses.isEmpty || model.state.isRunning)
             }
         }
         .padding()
