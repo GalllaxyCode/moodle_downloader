@@ -41,7 +41,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button { model.refreshCourses() } label: {
-                    Label("Обновить", systemImage: "arrow.clockwise")
+                    Label("Обновить список курсов", systemImage: "arrow.clockwise")
                 }
                 .disabled(model.state.isRunning)
             }
@@ -194,22 +194,30 @@ struct ContentView: View {
                 }
             } else if case .preparing(let text) = model.state {
                 HStack { ProgressView().controlSize(.small); Text(text).font(.caption) }
-            } else if case .finished(let url, let downloaded, let skipped) = model.state {
+            } else if case .finished(let url, let downloaded, let skipped, let existing) = model.state {
                 HStack {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("Скачано: \(downloaded)" + (skipped > 0 ? ", пропущено: \(skipped)" : "")).font(.caption)
+                    Text("Скачано: \(downloaded)" + (existing > 0 ? ", уже есть: \(existing)" : "") + (skipped > 0 ? ", не скачано: \(skipped)" : "")).font(.caption)
                     Spacer()
                     Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 }
             }
 
-            Button { model.startDownload() } label: {
-                Label("Скачать выбранные материалы", systemImage: "arrow.down.circle.fill")
-                    .frame(maxWidth: .infinity)
+            HStack {
+                Button { model.startDownload() } label: {
+                    Label("Скачать выбранные материалы", systemImage: "arrow.down.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.selectedCourse == nil || model.selectedActivityIDs.isEmpty || model.state.isRunning)
+
+                Button { model.startDownload(updateExisting: true) } label: {
+                    Label("Обновить папку курса", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .help("Проверить весь курс и скачать только недостающие файлы. Выберите прежнюю папку назначения или саму папку курса. ZIP не создаётся.")
+                .disabled(model.selectedCourse == nil || model.state.isRunning)
             }
-            .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(model.selectedCourse == nil || model.selectedActivityIDs.isEmpty || model.state.isRunning)
         }
         .padding()
     }

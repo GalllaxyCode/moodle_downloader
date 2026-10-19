@@ -129,12 +129,20 @@ final class MoodleScraper {
         }
     }
 
-    func discoverFiles(in activity: MoodleActivity) async throws -> [URL] {
+    func discoverFiles(in activity: MoodleActivity, metadataOnly: Bool = false) async throws -> [URL] {
         if activity.url.path.contains("pluginfile.php") { return [activity.url] }
         let quoted = jsQuote(activity.url.absoluteString)
         let script = #"""
         (async () => {
-          const response = await fetch(\#(quoted), {credentials: 'include', redirect: 'follow'});
+          const options = {credentials: 'include', redirect: 'follow'};
+          const metadataOnly = \#(metadataOnly ? "true" : "false");
+          let response = await fetch(\#(quoted), {...options, method: metadataOnly ? 'HEAD' : 'GET'});
+          // Resource pages redirect to the file itself. Resolve that URL without
+          // downloading its body; only HTML pages need a full fetch to find links.
+          if (metadataOnly && (!response.ok || (
+            (response.headers.get('content-type') || '').includes('text/html') &&
+            !/attachment/i.test(response.headers.get('content-disposition') || '')
+          ))) response = await fetch(\#(quoted), options);
           const type = response.headers.get('content-type') || '';
           const disposition = response.headers.get('content-disposition') || '';
           if (!type.includes('text/html') || /attachment/i.test(disposition)) return JSON.stringify([response.url]);

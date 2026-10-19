@@ -33,7 +33,7 @@ enum DownloadState: Equatable {
     case idle
     case preparing(String)
     case downloading(done: Int, total: Int, current: String)
-    case finished(URL, downloaded: Int, skipped: Int)
+    case finished(URL, downloaded: Int, skipped: Int, existing: Int)
     case failed(String)
 
     var isRunning: Bool {

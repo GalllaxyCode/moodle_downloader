@@ -236,29 +236,41 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func startDownload() {
-        guard let course = selectedCourse, !selectedActivityIDs.isEmpty else { return }
+    func startDownload(updateExisting: Bool = false) {
+        guard let course = selectedCourse, !state.isRunning,
+              updateExisting || !selectedActivityIDs.isEmpty else { return }
+        let outputDestination = destination
+        let makeArchive = !updateExisting && createArchive
         activeTask?.cancel()
         state = .preparing("Читаю структуру курса…")
         activeTask = Task {
             do {
                 let scraper = MoodleScraper(session: webSession)
                 let sectionsToDownload: [MoodleSection]
-                if sections.isEmpty {
+                if updateExisting {
+                    sectionsToDownload = try await scraper.loadSections(course: course)
+                    try Task.checkCancellation()
+                    if selectedCourse?.id == course.id {
+                        sections = sectionsToDownload.sorted { $0.index < $1.index }
+                        selectAllSections()
+                    }
+                } else if sections.isEmpty {
                     sectionsToDownload = try await scraper.loadSections(course: course)
                         .compactMap { sectionWithSelectedActivities($0) }
                 } else {
                     sectionsToDownload = sections.compactMap { sectionWithSelectedActivities($0) }
                 }
-                let candidates = try await discoverCandidates(in: sectionsToDownload, scraper: scraper)
+                let candidates = try await discoverCandidates(in: sectionsToDownload, scraper: scraper, metadataOnly: updateExisting)
                 guard !candidates.isEmpty else { throw NSError(domain: "MoodleDownloader", code: 1, userInfo: [NSLocalizedDescriptionKey: "В курсе не найдено доступных для скачивания файлов."]) }
                 let cookies = await webSession.cookies()
                 let downloader = FileDownloader(cookies: cookies)
-                let (output, summary) = try await downloader.download(candidates: candidates, course: course, destination: destination, makeArchive: createArchive) { done, total, current in
+                let (output, summary) = try await downloader.download(candidates: candidates, course: course, destination: outputDestination, makeArchive: makeArchive, updateExisting: updateExisting) { done, total, current in
                     await MainActor.run { self.state = .downloading(done: done, total: total, current: current) }
                 }
-                state = .finished(output, downloaded: summary.downloaded, skipped: summary.skipped)
-                statusMessage = "Скачано файлов: \(summary.downloaded)"
+                state = .finished(output, downloaded: summary.downloaded, skipped: summary.skipped, existing: summary.existing)
+                statusMessage = updateExisting
+                    ? "Папка обновлена: новых файлов — \(summary.downloaded), уже есть — \(summary.existing)"
+                    : "Скачано файлов: \(summary.downloaded)"
                 NSWorkspace.shared.activateFileViewerSelecting([output])
             } catch is CancellationError {
                 state = .idle
@@ -336,7 +348,7 @@ final class AppModel: ObservableObject {
                     destination: destination,
                     filename: "Moodle Materials.zip"
                 )
-                state = .finished(output, downloaded: downloaded, skipped: skipped)
+                state = .finished(output, downloaded: downloaded, skipped: skipped, existing: 0)
                 statusMessage = "Полный архив готов: \(downloaded) файлов"
                 NSWorkspace.shared.activateFileViewerSelecting([output])
             } catch is CancellationError {
@@ -360,7 +372,8 @@ final class AppModel: ObservableObject {
     private func discoverCandidates(
         in courseSections: [MoodleSection],
         scraper: MoodleScraper,
-        messagePrefix: String? = nil
+        messagePrefix: String? = nil,
+        metadataOnly: Bool = false
     ) async throws -> [DownloadCandidate] {
         var candidates: [DownloadCandidate] = []
         let totalActivities = courseSections.reduce(0) { $0 + $1.activities.count }
@@ -371,7 +384,7 @@ final class AppModel: ObservableObject {
                 inspected += 1
                 let prefix = messagePrefix.map { "\($0) · " } ?? ""
                 state = .preparing("\(prefix)Проверяю материалы: \(inspected) из \(totalActivities)")
-                let urls = try await scraper.discoverFiles(in: activity)
+                let urls = try await scraper.discoverFiles(in: activity, metadataOnly: metadataOnly)
                 for url in urls {
                     candidates.append(DownloadCandidate(
                         sectionIndex: section.index,

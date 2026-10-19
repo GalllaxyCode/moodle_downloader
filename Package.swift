@@ -11,6 +11,10 @@ let package = Package(
         .executableTarget(
             name: "MoodleDownloader",
             path: "Sources/MoodleDownloader"
+        ),
+        .testTarget(
+            name: "MoodleDownloaderTests",
+            dependencies: ["MoodleDownloader"]
         )
     ]
 )
