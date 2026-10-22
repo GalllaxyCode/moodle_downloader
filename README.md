@@ -27,10 +27,11 @@ open "dist/Moodle Downloader.app"
 ```
 
 Образ и файл SHA-256 сохраняются в `dist/`. Если Command Line Tools выбирает
-macOS 27 SDK без SwiftUIMacros, укажите установленный SDK macOS 26.5:
+macOS 27 SDK без SwiftUIMacros, скрипты сами переключаются на установленный
+SDK macOS 26. Для ручного `swift build` укажите его явно:
 
 ```bash
-SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk ./scripts/package-dmg.sh
+SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk swift build
 ```
 
 ## Установка готового релиза

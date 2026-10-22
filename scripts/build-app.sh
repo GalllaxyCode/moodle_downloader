@@ -7,6 +7,12 @@ BUILD_DIR="$ROOT_DIR/.build/release"
 OUTPUT_APP="$ROOT_DIR/dist/$APP_NAME.app"
 
 cd "$ROOT_DIR"
+# Command Line Tools ship the macOS 27 SDK without SwiftUIMacros; fall back to macOS 26.
+DEVELOPER_DIR="$(xcode-select -p)"
+if [[ -z "${SDKROOT:-}" && -d "$DEVELOPER_DIR/SDKs/MacOSX26.sdk" \
+   && ! -e "$DEVELOPER_DIR/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib" ]]; then
+  export SDKROOT="$DEVELOPER_DIR/SDKs/MacOSX26.sdk"
+fi
 swift build -c release
 mkdir -p "$ROOT_DIR/dist"
 STAGING_DIR="$(mktemp -d "$ROOT_DIR/dist/.app-build.XXXXXX")"
