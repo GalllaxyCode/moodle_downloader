@@ -14,7 +14,9 @@ final class AppModel: ObservableObject {
     @Published var isStarting = true
     @Published var createArchive = false
     @Published var statusMessage = "Подключаюсь к Innopolis Moodle…"
-    @Published var destination: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+    @Published var destination: URL = AppModel.savedDestination() {
+        didSet { UserDefaults.standard.set(destination.path, forKey: Self.destinationKey) }
+    }
     @Published private var courseVisibility = CourseVisibility()
 
     var visibleCourses: [MoodleCourse] { courseVisibility.visibleCourses(from: courses) }
@@ -227,6 +229,19 @@ final class AppModel: ObservableObject {
     func clearSectionSelection() {
         selectedSectionIDs.removeAll()
         selectedActivityIDs.removeAll()
+    }
+
+    private static let destinationKey = "downloadDestinationPath"
+
+    /// Last folder chosen by the user, or Downloads if none was saved or it no longer exists.
+    private static func savedDestination() -> URL {
+        var isDirectory: ObjCBool = false
+        if let path = UserDefaults.standard.string(forKey: destinationKey),
+           FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+           isDirectory.boolValue {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
     }
 
     func chooseDestination() {
